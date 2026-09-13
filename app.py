@@ -45,6 +45,38 @@ def init_db():
                 status TEXT
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS institution_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                institution_id TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                label TEXT,
+                url TEXT NOT NULL,
+                is_official INTEGER NOT NULL DEFAULT 0,
+                last_checked_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(institution_id, url)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS evidence_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                institution_id TEXT NOT NULL,
+                source_id INTEGER,
+                source_url TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                observed_at TEXT NOT NULL,
+                title TEXT,
+                excerpt TEXT,
+                signal_type TEXT,
+                confidence REAL,
+                review_status TEXT NOT NULL DEFAULT 'unreviewed',
+                content_hash TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(institution_id, source_url, content_hash),
+                FOREIGN KEY(source_id) REFERENCES institution_sources(id)
+            )
+        """)
         conn.commit()
 
 
@@ -190,7 +222,79 @@ def health():
     init_db()
     with sqlite3.connect(DB_PATH) as conn:
         total = conn.execute("SELECT COUNT(*) FROM institutions").fetchone()[0]
-    return jsonify({"status": "ok", "database": "ok", "records": total})
+        sources = conn.execute("SELECT COUNT(*) FROM institution_sources").fetchone()[0]
+        evidence = conn.execute("SELECT COUNT(*) FROM evidence_items").fetchone()[0]
+    return jsonify({"status": "ok", "database": "ok", "records": total, "sources": sources, "evidence": evidence})
+
+
+@app.route("/api/coverage")
+def coverage():
+    """Show which institutions have public sources and evidence coverage."""
+    init_db()
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+    except ValueError:
+        page = 1
+    per_page = min(100, max(1, int(request.args.get("per_page", "25"))))
+    offset = (page - 1) * per_page
+    with sqlite3.connect(DB_PATH) as conn:
+        total = conn.execute("SELECT COUNT(*) FROM institutions").fetchone()[0]
+        rows = conn.execute(
+            """
+            SELECT i.id, i.name, i.city, i.township, i.type,
+                   COUNT(DISTINCT s.id), COUNT(DISTINCT e.id)
+            FROM institutions i
+            LEFT JOIN institution_sources s ON s.institution_id = i.id
+            LEFT JOIN evidence_items e ON e.institution_id = i.id
+            GROUP BY i.id, i.name, i.city, i.township, i.type
+            ORDER BY i.name LIMIT ? OFFSET ?
+            """,
+            (per_page, offset),
+        ).fetchall()
+    return jsonify({
+        "data": [
+            {
+                "id": row[0], "name": row[1], "city": row[2],
+                "township": row[3], "type": row[4],
+                "source_count": row[5], "evidence_count": row[6],
+            }
+            for row in rows
+        ],
+        "pagination": {"page": page, "per_page": per_page, "total": total, "pages": (total + per_page - 1) // per_page},
+    })
+
+
+@app.route("/api/institutions/<institution_id>/sources")
+def institution_sources(institution_id):
+    init_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute(
+            "SELECT id, platform, label, url, is_official, last_checked_at "
+            "FROM institution_sources WHERE institution_id = ? ORDER BY platform, label",
+            (institution_id,),
+        ).fetchall()
+    return jsonify({"data": [
+        {"id": r[0], "platform": r[1], "label": r[2], "url": r[3], "is_official": bool(r[4]), "last_checked_at": r[5]}
+        for r in rows
+    ]})
+
+
+@app.route("/api/institutions/<institution_id>/evidence")
+def institution_evidence(institution_id):
+    init_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute(
+            "SELECT id, source_id, source_url, platform, observed_at, title, excerpt, "
+            "signal_type, confidence, review_status, content_hash "
+            "FROM evidence_items WHERE institution_id = ? ORDER BY observed_at DESC",
+            (institution_id,),
+        ).fetchall()
+    return jsonify({"data": [
+        {"id": r[0], "source_id": r[1], "source_url": r[2], "platform": r[3], "observed_at": r[4],
+         "title": r[5], "excerpt": r[6], "signal_type": r[7], "confidence": r[8],
+         "review_status": r[9], "content_hash": r[10]}
+        for r in rows
+    ]})
 
 
 if __name__ == "__main__":
