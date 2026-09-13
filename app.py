@@ -252,7 +252,8 @@ def health():
         ).fetchone()[0]
         verified_evidence = conn.execute(
             """SELECT COUNT(*) FROM evidence_items e JOIN institution_sources s
-            ON s.id = e.source_id WHERE s.verification_status = 'verified'"""
+            ON s.id = e.source_id WHERE s.verification_status = 'verified'
+            AND e.review_status = 'approved'"""
         ).fetchone()[0]
         quarantined_evidence = conn.execute(
             "SELECT COUNT(*) FROM evidence_items WHERE review_status = 'source_review_required'"
@@ -276,12 +277,16 @@ def dashboard():
             ).fetchone()[0],
             "evidence": conn.execute(
                 """SELECT COUNT(*) FROM evidence_items e JOIN institution_sources s
-                ON s.id = e.source_id WHERE s.verification_status = 'verified'"""
+                ON s.id = e.source_id WHERE s.verification_status = 'verified'
+                AND e.review_status = 'approved'"""
             ).fetchone()[0],
-            "unreviewed": conn.execute(
+            "review_queue": conn.execute(
                 """SELECT COUNT(*) FROM evidence_items e JOIN institution_sources s
                 ON s.id = e.source_id WHERE s.verification_status = 'verified'
                 AND e.review_status = 'unreviewed'"""
+            ).fetchone()[0],
+            "quarantined": conn.execute(
+                "SELECT COUNT(*) FROM evidence_items WHERE review_status = 'source_review_required'"
             ).fetchone()[0],
         }
         covered = conn.execute(
@@ -292,7 +297,7 @@ def dashboard():
         signal_mix = conn.execute(
             "SELECT COALESCE(e.signal_type, 'unclassified'), COUNT(*) "
             "FROM evidence_items e JOIN institution_sources s ON s.id = e.source_id "
-            "WHERE s.verification_status = 'verified' "
+            "WHERE s.verification_status = 'verified' AND e.review_status = 'approved' "
             "GROUP BY COALESCE(e.signal_type, 'unclassified') "
             "ORDER BY COUNT(*) DESC"
         ).fetchall()
@@ -301,7 +306,7 @@ def dashboard():
             "e.signal_type, e.review_status, e.observed_at, e.source_url "
             "FROM evidence_items e JOIN institutions i ON i.id = e.institution_id "
             "JOIN institution_sources s ON s.id = e.source_id "
-            "WHERE s.verification_status = 'verified' "
+            "WHERE s.verification_status = 'verified' AND e.review_status = 'approved' "
             "ORDER BY e.observed_at DESC LIMIT 10"
         ).fetchall()
     totals["source_coverage_percent"] = round(
