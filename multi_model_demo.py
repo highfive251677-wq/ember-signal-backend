@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import argparse
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -68,19 +69,26 @@ def openai() -> str:
 
 
 def main() -> None:
-    jobs = [("DeepSeek — technical audit", deepseek), ("Gemini — evidence schema", gemini), ("OpenAI — release gate", openai)]
-    output = []
-    for label, fn in jobs:
-        try:
-            output.append({"worker": label, "status": "ok", "report": fn()})
-        except Exception as exc:
-            output.append({"worker": label, "status": "error", "error": str(exc)})
+    parser = argparse.ArgumentParser(description="Run exactly one bounded model task.")
+    parser.add_argument("--task", choices=["technical_audit", "evidence_schema", "release_review"], required=True)
+    args = parser.parse_args()
+    jobs = {
+        "technical_audit": ("DeepSeek — technical audit", deepseek),
+        "evidence_schema": ("Gemini — evidence schema", gemini),
+        "release_review": ("OpenAI — release gate", openai),
+    }
+    label, fn = jobs[args.task]
+    try:
+        output = [{"task": args.task, "worker": label, "status": "ok", "report": fn(), "pause_after_task": True}]
+    except Exception as exc:
+        output = [{"task": args.task, "worker": label, "status": "error", "error": str(exc), "pause_after_task": True}]
     path = Path("/tmp/ember-signal-multi-model-demo.json")
     path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
     for item in output:
         print(f"\n=== {item['worker']} [{item['status']}] ===")
         print(item.get("report", item.get("error", ""))[:4000])
-    print(f"\nSaved full reports to {path}")
+    print(f"\nSaved full report to {path}")
+    print("BUDGET_PAUSED: one task completed; no next task was started")
 
 
 if __name__ == "__main__":

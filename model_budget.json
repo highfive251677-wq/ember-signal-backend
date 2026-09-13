@@ -1,7 +1,11 @@
 {
   "daily_requests_per_provider": 20,
   "daily_output_tokens_per_provider": 100000,
+  "stop_after_fraction_of_daily_budget": 0.10,
+  "max_tasks_per_run": 1,
+  "max_providers_per_run": 1,
   "retry_transient_errors": 1,
+  "pause_after_task": true,
   "tasks": {
     "technical_audit": {"primary": "deepseek", "max_output_tokens": 1200, "fallback": "openrouter"},
     "evidence_schema": {"primary": "gemini", "max_output_tokens": 800, "fallback": "openrouter"},
