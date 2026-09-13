@@ -16,6 +16,7 @@ BASE = Path(__file__).resolve().parent
 CONTEXT = "\n\n".join((BASE / "handoff" / n).read_text(encoding="utf-8") for n in [
     "PROJECT_CONTEXT.md", "CURRENT_STATUS.md", "TASK_QUEUE.md"
 ])
+BUDGET = json.loads((BASE / "model_budget.json").read_text(encoding="utf-8"))
 
 
 def post_json(url: str, headers: dict[str, str], payload: dict) -> dict:
@@ -30,13 +31,22 @@ def post_json(url: str, headers: dict[str, str], payload: dict) -> dict:
         raise RuntimeError(f"network error: {exc.reason}") from exc
 
 
+def compact_context() -> str:
+    """Send only the stable status summary, not the full repository."""
+    return "Project: Myanmar college public-source intelligence. Baseline: 357 institutions, 69 sources, 41 evidence, 28 duplicate groups, 41 unreviewed evidence. Release is blocked until quality review passes."
+
+
+def limit(task: str) -> int:
+    return BUDGET["tasks"][task]["max_output_tokens"]
+
+
 def deepseek() -> str:
     prompt = """Act as the technical auditor. Inspect the supplied project handoff context and return a report-only plan for investigating the 28 duplicate institution groups. Do not modify code or data. Include queries/files to inspect, safety risks, and acceptance criteria."""
     result = post_json("https://api.deepseek.com/v1/chat/completions", {
         "Authorization": f"Bearer {os.environ['DEEPSEEK_API_KEY']}"
-    }, {"model": "deepseek-chat", "temperature": 0.1, "messages": [
+    }, {"model": "deepseek-chat", "temperature": 0.1, "max_tokens": limit("technical_audit"), "messages": [
         {"role": "system", "content": "You are a report-only technical auditor."},
-        {"role": "user", "content": f"{CONTEXT}\n\n{prompt}"},
+        {"role": "user", "content": f"{compact_context()}\n\n{prompt}"},
     ]})
     return result["choices"][0]["message"]["content"]
 
@@ -45,7 +55,7 @@ def gemini() -> str:
     prompt = """Act as the data-classification specialist. From the supplied context, define a compact JSON schema for reviewing evidence records, with allowed review_status values and rules for approved, rejected, and source_review_required. Return JSON only. Do not modify anything."""
     result = post_json("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent", {
         "x-goog-api-key": os.environ["GEMINI_API_KEY"]
-    }, {"contents": [{"parts": [{"text": f"{CONTEXT}\n\n{prompt}"}]}], "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}})
+    }, {"contents": [{"parts": [{"text": f"{compact_context()}\n\n{prompt}"}]}], "generationConfig": {"temperature": 0.1, "maxOutputTokens": limit("evidence_schema"), "responseMimeType": "application/json"}})
     return result["candidates"][0]["content"]["parts"][0]["text"]
 
 
@@ -53,7 +63,7 @@ def openai() -> str:
     prompt = """Act as the independent release reviewer. Based only on the supplied context, return PASS, FAIL, or BLOCKED for adding a new source batch. Give three evidence-based reasons and the exact conditions needed to change the verdict. Do not modify or deploy anything."""
     result = post_json("https://api.openai.com/v1/responses", {
         "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"
-    }, {"model": "gpt-4o-mini", "input": f"{CONTEXT}\n\n{prompt}", "temperature": 0.1})
+    }, {"model": "gpt-4o-mini", "input": f"{compact_context()}\n\n{prompt}", "temperature": 0.1, "max_output_tokens": limit("release_review")})
     return result.get("output_text", json.dumps(result))
 
 

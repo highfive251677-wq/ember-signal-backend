@@ -1,0 +1,12 @@
+{
+  "daily_requests_per_provider": 20,
+  "daily_output_tokens_per_provider": 100000,
+  "retry_transient_errors": 1,
+  "tasks": {
+    "technical_audit": {"primary": "deepseek", "max_output_tokens": 1200, "fallback": "openrouter"},
+    "evidence_schema": {"primary": "gemini", "max_output_tokens": 800, "fallback": "openrouter"},
+    "release_review": {"primary": "openai", "max_output_tokens": 700, "fallback": "openrouter"},
+    "short_classification": {"primary": "groq", "max_output_tokens": 300, "fallback": null},
+    "translation_extraction": {"primary": "mistral", "max_output_tokens": 600, "fallback": "openrouter"}
+  }
+}
