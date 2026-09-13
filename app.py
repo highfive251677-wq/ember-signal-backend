@@ -38,7 +38,7 @@ def get_db_data():
     with sqlite3.connect(DB_PATH) as conn:
         rows = conn.execute(
             "SELECT id, name, city, township, type, status "
-            "FROM institutions ORDER BY name LIMIT 100"
+            "FROM institutions ORDER BY name"
         ).fetchall()
     return rows
 
