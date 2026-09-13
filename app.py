@@ -58,6 +58,15 @@ def init_db():
                 UNIQUE(institution_id, url)
             )
         """)
+        source_columns = {row[1] for row in conn.execute("PRAGMA table_info(institution_sources)")}
+        for column, definition in {
+            "verification_status": "TEXT NOT NULL DEFAULT 'unverified'",
+            "confidence": "REAL",
+            "verification_notes": "TEXT",
+            "verified_at": "TEXT",
+        }.items():
+            if column not in source_columns:
+                conn.execute(f"ALTER TABLE institution_sources ADD COLUMN {column} {definition}")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS evidence_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -317,12 +326,15 @@ def institution_sources(institution_id):
     init_db()
     with sqlite3.connect(DB_PATH) as conn:
         rows = conn.execute(
-            "SELECT id, platform, label, url, is_official, last_checked_at "
+            "SELECT id, platform, label, url, is_official, last_checked_at, "
+            "verification_status, confidence, verification_notes, verified_at "
             "FROM institution_sources WHERE institution_id = ? ORDER BY platform, label",
             (institution_id,),
         ).fetchall()
     return jsonify({"data": [
-        {"id": r[0], "platform": r[1], "label": r[2], "url": r[3], "is_official": bool(r[4]), "last_checked_at": r[5]}
+        {"id": r[0], "platform": r[1], "label": r[2], "url": r[3], "is_official": bool(r[4]),
+         "last_checked_at": r[5], "verification_status": r[6], "confidence": r[7],
+         "verification_notes": r[8], "verified_at": r[9]}
         for r in rows
     ]})
 

@@ -113,14 +113,16 @@ def collect_url(url: str, timeout: int, max_bytes: int) -> dict:
     }
 
 
-def run_once(delay: float, timeout: int, max_bytes: int) -> dict:
+def run_once(delay: float, timeout: int, max_bytes: int, include_unverified: bool = False) -> dict:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     checked = stored = skipped = errors = 0
     now = datetime.now(timezone.utc).isoformat()
     with sqlite3.connect(DB_PATH) as conn:
-        sources = conn.execute(
-            "SELECT id, institution_id, platform, url FROM institution_sources ORDER BY id"
-        ).fetchall()
+        query = "SELECT id, institution_id, platform, url FROM institution_sources"
+        if not include_unverified:
+            query += " WHERE verification_status IN ('verified', 'needs_review')"
+        query += " ORDER BY id"
+        sources = conn.execute(query).fetchall()
         for source_id, institution_id, platform, url in sources:
             checked += 1
             try:
@@ -154,7 +156,8 @@ if __name__ == "__main__":
     parser.add_argument("--delay", type=float, default=2.0, help="seconds between sources")
     parser.add_argument("--timeout", type=int, default=15)
     parser.add_argument("--max-bytes", type=int, default=2_000_000)
+    parser.add_argument("--include-unverified", action="store_true")
     args = parser.parse_args()
     if not args.once:
         parser.error("use --once; schedule this command externally")
-    print(json.dumps(run_once(args.delay, args.timeout, args.max_bytes), ensure_ascii=False))
+    print(json.dumps(run_once(args.delay, args.timeout, args.max_bytes, args.include_unverified), ensure_ascii=False))
