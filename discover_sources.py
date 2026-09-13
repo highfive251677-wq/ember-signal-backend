@@ -12,6 +12,7 @@ import time
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
+from urllib.robotparser import RobotFileParser
 from urllib.request import Request, urlopen
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -43,7 +44,19 @@ def platform_for(url):
     return None
 
 
+def allowed_by_robots(url):
+    parsed = urlparse(url)
+    parser = RobotFileParser(f'{parsed.scheme}://{parsed.netloc}/robots.txt')
+    try:
+        parser.read()
+        return parser.can_fetch(UA, url)
+    except Exception:
+        return False
+
+
 def discover(url, timeout):
+    if not allowed_by_robots(url):
+        raise PermissionError('robots.txt does not permit discovery')
     req = Request(url, headers={'User-Agent': UA, 'Accept': 'text/html'})
     with urlopen(req, timeout=timeout) as response:
         if response.headers.get_content_type() not in {'text/html', 'application/xhtml+xml'}:
@@ -65,7 +78,8 @@ def run_once(delay, timeout):
     checked = discovered = errors = 0
     with sqlite3.connect(DB_PATH) as conn:
         sources = conn.execute(
-            "SELECT id, institution_id, url FROM institution_sources WHERE platform = 'website'"
+            "SELECT id, institution_id, url FROM institution_sources "
+            "WHERE platform = 'website' AND verification_status = 'verified'"
         ).fetchall()
         for source_id, institution_id, url in sources:
             checked += 1
@@ -83,7 +97,7 @@ def run_once(delay, timeout):
                 errors += 1
                 print(f'{url}: {exc}')
             conn.commit()
-            time.sleep(delay)
+            time.sleep(max(0.5, delay))
     return {'checked': checked, 'discovered': discovered, 'errors': errors}
 
 
