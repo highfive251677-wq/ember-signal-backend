@@ -171,11 +171,17 @@ def query_institutions():
 
 
 def get_json_evidence():
-    try:
-        with EVIDENCE_PATH.open("r", encoding="utf-8") as evidence_file:
-            return json.load(evidence_file)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {"error": "Evidence file not found"}
+    init_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute(
+            "SELECT id, title, source_url, observed_at, review_status, excerpt "
+            "FROM evidence_items ORDER BY observed_at DESC LIMIT 100"
+        ).fetchall()
+    return {"records": [
+        {"id": r[0], "title": r[1], "source": r[2], "observedAt": r[3],
+         "status": r[4], "summary": r[5]}
+        for r in rows
+    ]}
 
 
 init_db()
@@ -248,25 +254,37 @@ def dashboard():
     with sqlite3.connect(DB_PATH) as conn:
         totals = {
             "institutions": conn.execute("SELECT COUNT(*) FROM institutions").fetchone()[0],
-            "sources": conn.execute("SELECT COUNT(*) FROM institution_sources").fetchone()[0],
-            "evidence": conn.execute("SELECT COUNT(*) FROM evidence_items").fetchone()[0],
+            "sources": conn.execute(
+                "SELECT COUNT(*) FROM institution_sources WHERE verification_status = 'verified'"
+            ).fetchone()[0],
+            "evidence": conn.execute(
+                """SELECT COUNT(*) FROM evidence_items e JOIN institution_sources s
+                ON s.id = e.source_id WHERE s.verification_status = 'verified'"""
+            ).fetchone()[0],
             "unreviewed": conn.execute(
-                "SELECT COUNT(*) FROM evidence_items WHERE review_status = 'unreviewed'"
+                """SELECT COUNT(*) FROM evidence_items e JOIN institution_sources s
+                ON s.id = e.source_id WHERE s.verification_status = 'verified'
+                AND e.review_status = 'unreviewed'"""
             ).fetchone()[0],
         }
         covered = conn.execute(
             "SELECT COUNT(*) FROM institutions i WHERE EXISTS "
-            "(SELECT 1 FROM institution_sources s WHERE s.institution_id = i.id)"
+            "(SELECT 1 FROM institution_sources s WHERE s.institution_id = i.id "
+            "AND s.verification_status = 'verified')"
         ).fetchone()[0]
         signal_mix = conn.execute(
-            "SELECT COALESCE(signal_type, 'unclassified'), COUNT(*) "
-            "FROM evidence_items GROUP BY COALESCE(signal_type, 'unclassified') "
+            "SELECT COALESCE(e.signal_type, 'unclassified'), COUNT(*) "
+            "FROM evidence_items e JOIN institution_sources s ON s.id = e.source_id "
+            "WHERE s.verification_status = 'verified' "
+            "GROUP BY COALESCE(e.signal_type, 'unclassified') "
             "ORDER BY COUNT(*) DESC"
         ).fetchall()
         recent = conn.execute(
             "SELECT e.id, e.institution_id, i.name, e.platform, e.title, "
             "e.signal_type, e.review_status, e.observed_at, e.source_url "
             "FROM evidence_items e JOIN institutions i ON i.id = e.institution_id "
+            "JOIN institution_sources s ON s.id = e.source_id "
+            "WHERE s.verification_status = 'verified' "
             "ORDER BY e.observed_at DESC LIMIT 10"
         ).fetchall()
     totals["source_coverage_percent"] = round(
@@ -299,10 +317,11 @@ def coverage():
         rows = conn.execute(
             """
             SELECT i.id, i.name, i.city, i.township, i.type,
-                   COUNT(DISTINCT s.id), COUNT(DISTINCT e.id)
+                   COUNT(DISTINCT CASE WHEN s.verification_status = 'verified' THEN s.id END),
+                   COUNT(DISTINCT CASE WHEN s.verification_status = 'verified' THEN e.id END)
             FROM institutions i
             LEFT JOIN institution_sources s ON s.institution_id = i.id
-            LEFT JOIN evidence_items e ON e.institution_id = i.id
+            LEFT JOIN evidence_items e ON e.institution_id = i.id AND e.source_id = s.id
             GROUP BY i.id, i.name, i.city, i.township, i.type
             ORDER BY i.name LIMIT ? OFFSET ?
             """,
