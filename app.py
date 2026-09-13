@@ -177,7 +177,7 @@ def get_json_evidence():
             "SELECT e.id, e.title, e.source_url, e.observed_at, e.review_status, e.excerpt "
             "FROM evidence_items e JOIN institution_sources s ON s.id = e.source_id "
             "WHERE s.verification_status = 'verified' "
-            "AND e.review_status != 'source_review_required' "
+            "AND e.review_status = 'approved' "
             "ORDER BY observed_at DESC LIMIT 100"
         ).fetchall()
     return {"records": [
