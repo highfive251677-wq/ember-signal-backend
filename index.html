@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ember Signal – Live Data</title>
+    <style>
+        body { background: #0d1117; color: #e6edf3; font-family: sans-serif; padding: 2rem; }
+        h1 { color: #f0c040; }
+        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+        th, td { border: 1px solid #30363d; padding: 0.7rem; text-align: left; }
+        th { background: #161b22; }
+        .card { background: #161b22; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+        .error { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>📡 Ember Signal – Live Market Pulse</h1>
+        <p>Data fetched from your SQLite database.</p>
+    </div>
+
+    <div class="card">
+        <h2>🏆 Top Brands by Value</h2>
+        <div id="brands">Loading…</div>
+    </div>
+
+    <div class="card">
+        <h2>🧾 Evidence Data</h2>
+        <pre id="evidence">Loading…</pre>
+    </div>
+
+    <script>
+        async function loadData() {
+            try {
+                const response = await fetch('/api/signals');
+                const data = await response.json();
+
+                let brandsHtml = '<table><tr><th>Name</th><th>Country</th><th>Brand Value</th></tr>';
+                data.top_brands.forEach(brand => {
+                    brandsHtml += `<tr><td>${brand[0]}</td><td>${brand[1]}</td><td>${brand[2]}</td></tr>`;
+                });
+                brandsHtml += '</table>';
+                document.getElementById('brands').innerHTML = brandsHtml;
+
+                document.getElementById('evidence').textContent = JSON.stringify(data.evidence, null, 2);
+            } catch (err) {
+                document.getElementById('brands').innerHTML = '<span class="error">Failed to load data. Is the API running?</span>';
+                document.getElementById('evidence').textContent = err.message;
+            }
+        }
+        loadData();
+    </script>
+</body>
+</html>
