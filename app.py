@@ -77,6 +77,11 @@ def init_db():
                 FOREIGN KEY(source_id) REFERENCES institution_sources(id)
             )
         """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sources_institution ON institution_sources(institution_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_institution ON evidence_items(institution_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_observed ON evidence_items(observed_at DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_review ON evidence_items(review_status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_signal ON evidence_items(signal_type)")
         conn.commit()
 
 
@@ -225,6 +230,49 @@ def health():
         sources = conn.execute("SELECT COUNT(*) FROM institution_sources").fetchone()[0]
         evidence = conn.execute("SELECT COUNT(*) FROM evidence_items").fetchone()[0]
     return jsonify({"status": "ok", "database": "ok", "records": total, "sources": sources, "evidence": evidence})
+
+
+@app.route("/api/dashboard")
+def dashboard():
+    """Return one payload for the premium overview dashboard."""
+    init_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        totals = {
+            "institutions": conn.execute("SELECT COUNT(*) FROM institutions").fetchone()[0],
+            "sources": conn.execute("SELECT COUNT(*) FROM institution_sources").fetchone()[0],
+            "evidence": conn.execute("SELECT COUNT(*) FROM evidence_items").fetchone()[0],
+            "unreviewed": conn.execute(
+                "SELECT COUNT(*) FROM evidence_items WHERE review_status = 'unreviewed'"
+            ).fetchone()[0],
+        }
+        covered = conn.execute(
+            "SELECT COUNT(*) FROM institutions i WHERE EXISTS "
+            "(SELECT 1 FROM institution_sources s WHERE s.institution_id = i.id)"
+        ).fetchone()[0]
+        signal_mix = conn.execute(
+            "SELECT COALESCE(signal_type, 'unclassified'), COUNT(*) "
+            "FROM evidence_items GROUP BY COALESCE(signal_type, 'unclassified') "
+            "ORDER BY COUNT(*) DESC"
+        ).fetchall()
+        recent = conn.execute(
+            "SELECT e.id, e.institution_id, i.name, e.platform, e.title, "
+            "e.signal_type, e.review_status, e.observed_at, e.source_url "
+            "FROM evidence_items e JOIN institutions i ON i.id = e.institution_id "
+            "ORDER BY e.observed_at DESC LIMIT 10"
+        ).fetchall()
+    totals["source_coverage_percent"] = round(
+        covered / totals["institutions"] * 100, 1
+    ) if totals["institutions"] else 0
+    return jsonify({
+        "totals": totals,
+        "signal_mix": [{"name": name, "count": count} for name, count in signal_mix],
+        "recent_evidence": [
+            {"id": r[0], "institution_id": r[1], "institution_name": r[2],
+             "platform": r[3], "title": r[4], "signal_type": r[5],
+             "review_status": r[6], "observed_at": r[7], "source_url": r[8]}
+            for r in recent
+        ],
+    })
 
 
 @app.route("/api/coverage")
