@@ -174,8 +174,11 @@ def get_json_evidence():
     init_db()
     with sqlite3.connect(DB_PATH) as conn:
         rows = conn.execute(
-            "SELECT id, title, source_url, observed_at, review_status, excerpt "
-            "FROM evidence_items ORDER BY observed_at DESC LIMIT 100"
+            "SELECT e.id, e.title, e.source_url, e.observed_at, e.review_status, e.excerpt "
+            "FROM evidence_items e JOIN institution_sources s ON s.id = e.source_id "
+            "WHERE s.verification_status = 'verified' "
+            "AND e.review_status != 'source_review_required' "
+            "ORDER BY observed_at DESC LIMIT 100"
         ).fetchall()
     return {"records": [
         {"id": r[0], "title": r[1], "source": r[2], "observedAt": r[3],
@@ -244,7 +247,21 @@ def health():
         total = conn.execute("SELECT COUNT(*) FROM institutions").fetchone()[0]
         sources = conn.execute("SELECT COUNT(*) FROM institution_sources").fetchone()[0]
         evidence = conn.execute("SELECT COUNT(*) FROM evidence_items").fetchone()[0]
-    return jsonify({"status": "ok", "database": "ok", "records": total, "sources": sources, "evidence": evidence})
+        verified_sources = conn.execute(
+            "SELECT COUNT(*) FROM institution_sources WHERE verification_status = 'verified'"
+        ).fetchone()[0]
+        verified_evidence = conn.execute(
+            """SELECT COUNT(*) FROM evidence_items e JOIN institution_sources s
+            ON s.id = e.source_id WHERE s.verification_status = 'verified'"""
+        ).fetchone()[0]
+        quarantined_evidence = conn.execute(
+            "SELECT COUNT(*) FROM evidence_items WHERE review_status = 'source_review_required'"
+        ).fetchone()[0]
+    return jsonify({"status": "ok", "database": "ok", "records": total,
+                    "sources": sources, "evidence": evidence,
+                    "verified_sources": verified_sources,
+                    "verified_evidence": verified_evidence,
+                    "quarantined_evidence": quarantined_evidence})
 
 
 @app.route("/api/dashboard")
