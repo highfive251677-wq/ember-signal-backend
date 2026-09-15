@@ -298,7 +298,7 @@ institution_id,name,city,township,type,status,website_url,website_state,google_m
 44,Myanmar Creative International College (MCIC),Yangon,လမ်းမတော်မြို့နယ်,Private College,MOE listed; official web not yet reviewed,,missing,,missing,,missing,,missing,0,"website,google_maps,facebook,tiktok"
 45,MST College,Yangon,ဒဂုံမြို့နယ်,Private College,MOE listed; official web not yet reviewed,,missing,,missing,,missing,,missing,0,"website,google_maps,facebook,tiktok"
 46,ဂျိူးဇက်ပညာရေး ကောလိပ်,Yangon,ဒဂုံမြို့သစ်(အရှေ့ပိုင်း)မြို့နယ်,Private College,MOE listed; official web not yet reviewed,,missing,,missing,,missing,,missing,0,"website,google_maps,facebook,tiktok"
-47,STI Myanmar College,Yangon,လှိုင်မြို့နယ်,Private College,MOE listed + official web verified,https://stiedu.net/,unverified,,missing,https://www.facebook.com/STIMyanmarUni,unverified,,missing,0,"google_maps,tiktok"
+47,STI Myanmar College,Yangon,လှိုင်မြို့နယ်,Private College,MOE listed + official web verified,https://stiedu.net/,verified,,missing,https://www.facebook.com/STIMyanmarUni,unverified,,missing,1,"google_maps,tiktok"
 48,KBTC College,Yangon,ဗဟန်းမြို့နယ်,Private College,MOE listed; official web not yet reviewed,,missing,,missing,,missing,,missing,0,"website,google_maps,facebook,tiktok"
 49,Youth International College,Yangon,ဗဟန်းမြို့နယ်,Private College,MOE listed; official web not yet reviewed,,missing,,missing,,missing,,missing,0,"website,google_maps,facebook,tiktok"
 5,ချင်းတွင်းနည်းပညာ ကောလိပ်,Mandalay,ချမ်းမြသာစည်မြို့နယ်,Private College,MOE listed; official web not yet reviewed,https://ctu.edu.mm/,verified,,missing,https://www.facebook.com/share/1DrcPTbLvR,unverified,https://www.tiktok.com/@chindwin_ctc,unverified,1,google_maps
@@ -306,7 +306,7 @@ institution_id,name,city,township,type,status,website_url,website_state,google_m
 51,RI IT College,Yangon,မင်္ဂလာတောင်ညွန့်မြို့နယ်,Private College,MOE listed; official web not yet reviewed,,missing,,missing,,missing,,missing,0,"website,google_maps,facebook,tiktok"
 52,Chindwin Technological College,Yangon,လမ်းမတော်မြို့နယ်,Private College,MOE listed; official web not yet reviewed,https://ctu.edu.mm/,verified,,missing,https://www.facebook.com/share/1DrcPTbLvR,unverified,https://www.tiktok.com/@chindwin_ctc,unverified,1,google_maps
 53,Taxila College,Yangon,လမ်းမတော်မြို့နယ်,Private College,MOE listed; official web not yet reviewed,,missing,,missing,,missing,,missing,0,"website,google_maps,facebook,tiktok"
-54,STI Myanmar College,Yangon,ပန်းပဲတန်းမြို့နယ်,Private College,MOE listed; partial official evidence,https://stiedu.net/,unverified,,missing,https://www.facebook.com/STIMyanmarUni,unverified,,missing,0,"google_maps,tiktok"
+54,STI Myanmar College,Yangon,ပန်းပဲတန်းမြို့နယ်,Private College,MOE listed; partial official evidence,https://stiedu.net/,verified,,missing,https://www.facebook.com/STIMyanmarUni,unverified,,missing,1,"google_maps,tiktok"
 55,MIBA College,Yangon,မရမ်းကုန်းမြို့နယ်,Private College,MOE listed; official web not yet reviewed,,missing,,missing,,missing,,missing,0,"website,google_maps,facebook,tiktok"
 56,Myanmar Noble College,Yangon,သင်္ဃန်းကျွန်းမြို့နယ်,Private College,MOE listed; official web not yet reviewed,,missing,,missing,,missing,,missing,0,"website,google_maps,facebook,tiktok"
 57,KMD College,Yangon,စမ်းချောင်းမြို့နယ်,Private College,MOE listed; official web not yet reviewed,,missing,,missing,,missing,,missing,0,"website,google_maps,facebook,tiktok"
