@@ -91,6 +91,18 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_observed ON evidence_items(observed_at DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_review ON evidence_items(review_status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_signal ON evidence_items(signal_type)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS correction_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                institution_id TEXT NOT NULL,
+                requester_contact TEXT NOT NULL,
+                claim TEXT NOT NULL,
+                supporting_url TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_corrections_institution ON correction_requests(institution_id)")
         conn.commit()
 
 
@@ -385,9 +397,11 @@ def institution_evidence(institution_id):
     init_db()
     with sqlite3.connect(DB_PATH) as conn:
         rows = conn.execute(
-            "SELECT id, source_id, source_url, platform, observed_at, title, excerpt, "
-            "signal_type, confidence, review_status, content_hash "
-            "FROM evidence_items WHERE institution_id = ? ORDER BY observed_at DESC",
+            "SELECT e.id, e.source_id, e.source_url, e.platform, e.observed_at, e.title, e.excerpt, "
+            "e.signal_type, e.confidence, e.review_status, e.content_hash "
+            "FROM evidence_items e JOIN institution_sources s ON s.id = e.source_id "
+            "WHERE e.institution_id = ? AND s.verification_status = 'verified' "
+            "AND e.review_status = 'approved' ORDER BY e.observed_at DESC",
             (institution_id,),
         ).fetchall()
     return jsonify({"data": [
@@ -396,6 +410,98 @@ def institution_evidence(institution_id):
          "review_status": r[9], "content_hash": r[10]}
         for r in rows
     ]})
+
+
+@app.route("/api/institutions/<institution_id>/profile")
+def institution_profile(institution_id):
+    """Return a public profile with explicit trust and review states."""
+    init_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT id, name, city, township, type, status FROM institutions WHERE id = ?",
+            (institution_id,),
+        ).fetchone()
+        if row is None:
+            return jsonify({"error": "Institution not found"}), 404
+        source_counts = conn.execute(
+            """SELECT verification_status, COUNT(*) FROM institution_sources
+            WHERE institution_id = ? GROUP BY verification_status""",
+            (institution_id,),
+        ).fetchall()
+        evidence_counts = conn.execute(
+            """SELECT e.review_status, COUNT(*) FROM evidence_items e
+            WHERE e.institution_id = ? GROUP BY e.review_status""",
+            (institution_id,),
+        ).fetchall()
+        evidence = conn.execute(
+            """SELECT e.id, e.source_url, e.platform, e.observed_at, e.title,
+            e.excerpt, e.signal_type, e.content_hash
+            FROM evidence_items e JOIN institution_sources s ON s.id = e.source_id
+            WHERE e.institution_id = ? AND s.verification_status = 'verified'
+            AND e.review_status = 'approved' ORDER BY e.observed_at DESC LIMIT 20""",
+            (institution_id,),
+        ).fetchall()
+    source_state = dict(source_counts)
+    review_state = dict(evidence_counts)
+    return jsonify({
+        "institution": row_to_dict(row),
+        "trust": {
+            "source_status": source_state,
+            "evidence_status": review_state,
+            "public_evidence_count": len(evidence),
+            "public_status": "published" if evidence else (
+                "source_verified" if source_state.get("verified", 0) else "discovered"
+            ),
+        },
+        "evidence": [
+            {"id": r[0], "source_url": r[1], "platform": r[2], "observed_at": r[3],
+             "title": r[4], "excerpt": r[5], "signal_type": r[6], "content_hash": r[7]}
+            for r in evidence
+        ],
+    })
+
+
+@app.route("/api/institutions/<institution_id>/corrections", methods=["POST"])
+def create_correction_request(institution_id):
+    """Accept a transparent correction request without changing published data."""
+    init_db()
+    payload = request.get_json(silent=True) or {}
+    contact = str(payload.get("contact", "")).strip()
+    claim = str(payload.get("claim", "")).strip()
+    supporting_url = str(payload.get("supporting_url", "")).strip() or None
+    if not contact or not claim:
+        return jsonify({"error": "contact and claim are required"}), 400
+    if len(contact) > 320 or len(claim) > 4000 or (supporting_url and len(supporting_url) > 2000):
+        return jsonify({"error": "correction request is too long"}), 400
+    with sqlite3.connect(DB_PATH) as conn:
+        exists = conn.execute("SELECT 1 FROM institutions WHERE id = ?", (institution_id,)).fetchone()
+        if exists is None:
+            return jsonify({"error": "Institution not found"}), 404
+        cur = conn.execute(
+            """INSERT INTO correction_requests
+            (institution_id, requester_contact, claim, supporting_url)
+            VALUES (?, ?, ?, ?)""",
+            (institution_id, contact, claim, supporting_url),
+        )
+        conn.commit()
+        request_id = cur.lastrowid
+    return jsonify({"id": request_id, "status": "pending"}), 201
+
+
+@app.route("/api/methodology")
+def methodology():
+    return jsonify({
+        "purpose": "Sourced, time-stamped, reviewable public information about Myanmar education institutions.",
+        "states": ["discovered", "source_verified", "evidence_collected", "human_reviewed", "published"],
+        "collection_rules": [
+            "Public HTTP(S) sources only",
+            "No login-gated or private content",
+            "Robots.txt must permit collection",
+            "Automatic collection is limited to verified sources",
+        ],
+        "publication_rule": "Only human-approved evidence from verified sources is published as a public signal.",
+        "correction_policy": "Corrections are recorded as requests and do not silently overwrite historical evidence.",
+    })
 
 
 if __name__ == "__main__":

@@ -1,55 +1,44 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ember Signal – Live Data</title>
-    <style>
-        body { background: #0d1117; color: #e6edf3; font-family: sans-serif; padding: 2rem; }
-        h1 { color: #f0c040; }
-        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-        th, td { border: 1px solid #30363d; padding: 0.7rem; text-align: left; }
-        th { background: #161b22; }
-        .card { background: #161b22; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
-        .error { color: #ff6b6b; }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ember Signal — Myanmar Education Directory</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#30363d; --text:#e6edf3; --muted:#9da7b3; --accent:#f0c040; --good:#58d68d; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,sans-serif; }
+    main { max-width:1100px; margin:auto; padding:32px 20px 64px; } h1 { margin:0 0 6px; color:var(--accent); }
+    h2 { margin-top:0; } .muted { color:var(--muted); } .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px; margin:16px 0; }
+    .search { display:flex; gap:10px; flex-wrap:wrap; } input, textarea, button { border:1px solid var(--line); border-radius:8px; padding:11px 12px; font:inherit; }
+    input, textarea { background:#0d1117; color:var(--text); flex:1; min-width:220px; } button { background:var(--accent); color:#191300; cursor:pointer; font-weight:700; }
+    button.secondary { background:#21262d; color:var(--text); } .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
+    .card { border:1px solid var(--line); border-radius:10px; padding:15px; background:#11161d; } .card h3 { margin:0 0 5px; }
+    .tag { display:inline-block; margin:7px 5px 0 0; padding:3px 8px; border-radius:999px; background:#263238; color:var(--muted); font-size:12px; }
+    .status { color:var(--good); } .error { color:#ff7b72; } a { color:#79c0ff; } pre { white-space:pre-wrap; }
+  </style>
 </head>
 <body>
-    <div class="card">
-        <h1>📡 Ember Signal – Live Market Pulse</h1>
-        <p>Data fetched from your SQLite database.</p>
-    </div>
-
-    <div class="card">
-        <h2>🏆 Top Brands by Value</h2>
-        <div id="brands">Loading…</div>
-    </div>
-
-    <div class="card">
-        <h2>🧾 Evidence Data</h2>
-        <pre id="evidence">Loading…</pre>
-    </div>
-
-    <script>
-        async function loadData() {
-            try {
-                const response = await fetch('/api/signals');
-                const data = await response.json();
-
-                let brandsHtml = '<table><tr><th>Name</th><th>Country</th><th>Brand Value</th></tr>';
-                data.top_brands.forEach(brand => {
-                    brandsHtml += `<tr><td>${brand[0]}</td><td>${brand[1]}</td><td>${brand[2]}</td></tr>`;
-                });
-                brandsHtml += '</table>';
-                document.getElementById('brands').innerHTML = brandsHtml;
-
-                document.getElementById('evidence').textContent = JSON.stringify(data.evidence, null, 2);
-            } catch (err) {
-                document.getElementById('brands').innerHTML = '<span class="error">Failed to load data. Is the API running?</span>';
-                document.getElementById('evidence').textContent = err.message;
-            }
-        }
-        loadData();
-    </script>
+<main>
+  <header class="panel">
+    <h1>Ember Signal</h1>
+    <p class="muted">A sourced, time-stamped, reviewable directory of Myanmar education institutions.</p>
+    <p id="methodology" class="muted">Loading methodology…</p>
+  </header>
+  <section class="panel">
+    <h2>Find an institution</h2>
+    <div class="search"><input id="q" placeholder="Search by name, city, or township"><button onclick="searchInstitutions()">Search</button></div>
+    <div id="results" class="grid" style="margin-top:15px"></div>
+  </section>
+  <section id="profile" class="panel" hidden></section>
+</main>
+<script>
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path, options) { const r = await fetch(path, options); const d = await r.json(); if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`); return d; }
+async function loadMethodology() { try { const d=await api('/api/methodology'); document.getElementById('methodology').textContent=d.purpose+' Public signals require human approval.'; } catch(e) { document.getElementById('methodology').textContent='Methodology unavailable.'; } }
+async function searchInstitutions() { const q=encodeURIComponent(document.getElementById('q').value); const box=document.getElementById('results'); box.innerHTML='<p class="muted">Loading…</p>'; try { const d=await api('/api/institutions?q='+q+'&per_page=12'); box.innerHTML=d.data.map(i=>`<article class="card"><h3>${esc(i.name)}</h3><div class="muted">${esc(i.city)} · ${esc(i.township)}</div><span class="tag">${esc(i.type)}</span><span class="tag">${esc(i.status)}</span><p><button class="secondary" onclick="showProfile('${esc(i.id)}')">View profile</button></p></article>`).join('') || '<p class="muted">No institutions found.</p>'; } catch(e) { box.innerHTML='<p class="error">'+esc(e.message)+'</p>'; } }
+async function showProfile(id) { const section=document.getElementById('profile'); section.hidden=false; section.innerHTML='<p>Loading profile…</p>'; try { const d=await api('/api/institutions/'+encodeURIComponent(id)+'/profile'); const i=d.institution, t=d.trust; section.innerHTML=`<h2>${esc(i.name)}</h2><p class="muted">${esc(i.city)} · ${esc(i.township)} · ${esc(i.type)}</p><p><strong>Trust state:</strong> <span class="status">${esc(t.public_status)}</span></p><p>Verified sources: ${esc(t.source_status.verified || 0)} · Public approved evidence: ${esc(t.public_evidence_count)}</p><p class="muted">Unreviewed or quarantined material is not published as a public signal.</p><h3>Correction request</h3><form onsubmit="submitCorrection(event,'${esc(i.id)}')"><input id="contact" required placeholder="Contact email or organization"><textarea id="claim" required placeholder="What should be corrected?"></textarea><button type="submit">Submit correction</button></form><p id="correction-result" class="muted"></p>`; section.scrollIntoView({behavior:'smooth'}); } catch(e) { section.innerHTML='<p class="error">'+esc(e.message)+'</p>'; } }
+async function submitCorrection(event,id) { event.preventDefault(); const out=document.getElementById('correction-result'); try { const d=await api('/api/institutions/'+encodeURIComponent(id)+'/corrections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contact:document.getElementById('contact').value,claim:document.getElementById('claim').value})}); out.textContent='Correction request received. Reference #'+d.id+'. It will be reviewed without silently changing history.'; } catch(e) { out.className='error'; out.textContent=e.message; } }
+loadMethodology(); searchInstitutions();
+</script>
 </body>
 </html>
