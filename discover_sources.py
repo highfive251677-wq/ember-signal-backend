@@ -38,6 +38,9 @@ class LinkParser(HTMLParser):
 
 def platform_for(url):
     host = urlparse(url).netloc.lower().split(':')[0]
+    path = urlparse(url).path.lower()
+    if host in {'maps.google.com', 'maps.app.goo.gl'} or (host == 'google.com' and path.startswith('/maps')):
+        return 'google_maps'
     for domain, platform in PLATFORMS.items():
         if host == domain or host.endswith('.' + domain):
             return platform
