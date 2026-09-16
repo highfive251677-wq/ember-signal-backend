@@ -1,17 +1,11 @@
 source_id,institution_id,institution_name,city,platform,url,current_status,decision,reason
-2,47,STI Myanmar College,Yangon,website,https://stiedu.net/,unverified,VERIFY_SOURCE,confirm public source identity and ownership
-3,54,STI Myanmar College,Yangon,website,https://stiedu.net/,unverified,VERIFY_SOURCE,confirm public source identity and ownership
 4,3,STI Myanmar College,Mandalay,facebook,https://www.facebook.com/STIMyanmarUni,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
 5,3,STI Myanmar College,Mandalay,instagram,https://www.instagram.com/sti.myanmar.college,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
 6,3,STI Myanmar College,Mandalay,linkedin,https://www.linkedin.com/company/sti-myanmar-universtiy,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
 8,47,STI Myanmar College,Yangon,facebook,https://www.facebook.com/STIMyanmarUni,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
-9,47,STI Myanmar College,Yangon,instagram,https://www.instagram.com/sti.myanmar.college,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
-10,47,STI Myanmar College,Yangon,linkedin,https://www.linkedin.com/company/sti-myanmar-universtiy,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
-11,47,STI Myanmar College,Yangon,youtube,https://www.youtube.com/@stimyanmar_official,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
 12,54,STI Myanmar College,Yangon,facebook,https://www.facebook.com/STIMyanmarUni,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
 13,54,STI Myanmar College,Yangon,instagram,https://www.instagram.com/sti.myanmar.college,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
 14,54,STI Myanmar College,Yangon,linkedin,https://www.linkedin.com/company/sti-myanmar-universtiy,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
-15,54,STI Myanmar College,Yangon,youtube,https://www.youtube.com/@stimyanmar_official,unverified,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
 35,59,BIY College,Yangon,facebook,https://www.facebook.com/BusinessInstituteYangonBIY/,needs_review,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
 44,66,Compu Tech ICT College,Yangon,facebook,https://www.facebook.com/computechictcollege/,needs_review,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
 45,66,Compu Tech ICT College,Yangon,youtube,https://www.youtube.com/@COMPUTECHICTCollege,needs_review,VERIFY_IDENTITY,"check account title, institution name, city, and link relationship against an official source"
