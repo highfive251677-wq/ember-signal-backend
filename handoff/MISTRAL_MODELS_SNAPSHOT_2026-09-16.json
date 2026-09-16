@@ -1,0 +1,122 @@
+[
+  {
+    "id": "codestral-2508",
+    "chat": true,
+    "json": null,
+    "context": 256000
+  },
+  {
+    "id": "codestral-latest",
+    "chat": true,
+    "json": null,
+    "context": 256000
+  },
+  {
+    "id": "mistral-code-latest",
+    "chat": true,
+    "json": null,
+    "context": 256000
+  },
+  {
+    "id": "mistral-code-fim-latest",
+    "chat": true,
+    "json": null,
+    "context": 256000
+  },
+  {
+    "id": "mistral-small-2603",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "mistral-small-latest",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "mistral-vibe-cli-fast",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "magistral-small-latest",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "voxtral-small-2507",
+    "chat": true,
+    "json": null,
+    "context": 32768
+  },
+  {
+    "id": "voxtral-small-latest",
+    "chat": true,
+    "json": null,
+    "context": 32768
+  },
+  {
+    "id": "labs-leanstral-1-5-1",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "labs-leanstral-1-5",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "ministral-3b-2512",
+    "chat": true,
+    "json": null,
+    "context": 131072
+  },
+  {
+    "id": "ministral-3b-latest",
+    "chat": true,
+    "json": null,
+    "context": 131072
+  },
+  {
+    "id": "ministral-8b-2512",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "ministral-8b-latest",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "ministral-14b-2512",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "ministral-14b-latest",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "mistral-medium-latest",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  },
+  {
+    "id": "mistral-medium",
+    "chat": true,
+    "json": null,
+    "context": 262144
+  }
+]
