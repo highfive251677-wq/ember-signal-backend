@@ -1,94 +1,84 @@
 # Ember Signal Worker Assignments — 2026-09-17
 
-## Operating decision
+## Command hierarchy
 
-The four workers operate as a controlled handoff, not an uncontrolled fan-out. Only one bounded task is active at a time. The current task is duplicate candidate 2, covering institution IDs 116 and 122. No worker may merge, delete, publish, deploy, or change production data.
+```text
+Supervisor — စူပါဗိုက် (Manus)
+        ↓ assigns and audits
+LED — team leader
+        ↓ coordinates
+L — မီးအိမ်     D — စစ်တံခါး     E — မျက်စိစောင့်
+```
 
-## Worker 1 — LED / စူပါဗိုက်
+The Supervisor is not LED. The Supervisor assigns bounded work to LED, reviews LED's coordination and the L/D/E outputs, checks connectors and KPIs, and decides whether the team may advance. LED leads the workers on the other side; LED does not self-approve a material decision.
 
-**Role:** Lead, coordinator, implementer, and release organizer.
+## Supervisor — စူပါဗိုက်
 
-**Active responsibility:** Define the Candidate 2 evidence packet, provide the exact acceptance criteria, integrate L/D/E outputs, run local validation, and write the checkpoint.
+**Owner:** Manus in the current session.
 
-**Required output:** A complete report envelope with task ID, role, provider, mode, claims, evidence references, risks, mutations, next action, and confidence.
+**Responsibilities:** Assign one bounded task to LED; specify acceptance criteria, required L/D/E handoffs, primary connector, mutation boundary, and stop condition; independently inspect the team packet; check Railway, GitHub, local data, connector status, provenance, and KPIs; return `PASS`, `FAIL`, `INCOMPLETE`, or `BLOCKED`; and authorize only the next safe step.
 
-**Must not do:** Self-approve the duplicate, silently bypass E, or deploy/publish before a gate passes.
+**Must not:** Pretend to be LED, accept LED's summary without evidence, self-approve a publication/merge/deployment, or bypass the E gate.
 
-**Connector use:** Manus/API-level orchestration only if a durable worker task is actually needed; no external task creation is required for this bounded local review. GitHub and Railway remain read-only during this stage.
+## LED — team leader
 
-## Worker 2 — မီးအိမ် / L
+**Task ID:** `dup-002-supervisor-assigned`
 
-**Role:** Public-source researcher.
+**Responsibilities:** Receive the Supervisor's packet; assign distinct bounded tasks to L, D, and E; integrate their report envelopes; run reversible validation; prepare the team checkpoint; and return the complete packet to the Supervisor.
+
+**Must not:** Self-approve, auto-merge, delete, remap foreign keys, publish, deploy, or hide a worker/provider failure.
+
+**Required handoffs:**
+
+- L: public-source research for institutions 116 and 122.
+- D: data/provenance/schema audit of the candidate and L packet.
+- E: independent review and one release verdict.
+
+## L — မီးအိမ်
 
 **Task ID:** `dup-002-source-research`
 
-**Scope:** Research only institution IDs 116 and 122. Find official, public, accessible sources that can establish identity, address, township, contact details, registration/affiliation, or evidence that they are separate entities. Search results alone are not proof.
+Find official, public, accessible sources for institution IDs 116 and 122 that establish identity, address, township, contact, registration/affiliation, or evidence that the records are separate. Record source URL, title, institution match, location, observed date, accessibility, robots/access uncertainty, excerpt, and uncertainty.
 
-**Required output:** For each URL, record source URL, page title, institution match, city/township, observed date, accessibility, robots/access uncertainty, relevant excerpt, and confidence. State clearly when no authoritative evidence is found.
+Do not use login/private content, bypass controls, guess social ownership, approve a source, write to the database, or make a merge decision. If no authoritative evidence is found, report that clearly.
 
-**Forbidden:** Login/private content, access-control bypass, robots-disallowed collection, guessed social ownership, source verification approval, database writes, and merge decisions.
+**Primary connector:** Public web/source access. Mistral may translate or extract fields after source capture; the output remains assistive.
 
-**Primary connector:** Public web/source access. Mistral may translate or extract fields only after the source is captured; its output remains assistive.
-
-**Stop condition:** Stop if the source is inaccessible, ambiguous, private, or cannot be tied to one of the two records.
-
-## Worker 3 — စစ်တံခါး / D
-
-**Role:** Data and quality auditor.
+## D — စစ်တံခါး
 
 **Task ID:** `dup-002-data-audit`
 
-**Scope:** Audit the L packet and local candidate 2. Confirm the candidate reason, source/evidence counts, canonical URL treatment, foreign-key impact, schema integrity, and that no institution/source/evidence rows changed.
+Audit the L packet and local candidate 2. Confirm candidate reasons, source/evidence counts, canonical URLs, foreign-key impact, schema integrity, and unchanged institution/source/evidence rows. Return an audit diff and a recommendation such as `NEEDS_HUMAN_EVIDENCE`, `KEEP_SEPARATE_REVIEW`, or `MERGE_REVIEW_ONLY`; never perform the merge.
 
-**Required output:** An audit diff containing before/after counts, candidate metadata, missing evidence, risks, and a recommendation of `NEEDS_HUMAN_EVIDENCE`, `KEEP_SEPARATE_REVIEW`, or `MERGE_REVIEW_ONLY`—never a merge action.
+**Primary connector:** Local repository/database and GitHub read-only review. DeepSeek/OpenAI may provide one report-only technical audit if access is available, without sending the full database.
 
-**Forbidden:** Deleting, merging, remapping foreign keys, marking a source verified, approving evidence, or modifying production.
-
-**Primary connector:** Local repository/database inspection and GitHub source review. Use DeepSeek/OpenAI only for an independent report-only code audit if access is available; do not send the full database.
-
-**Stop condition:** Stop for schema drift, unexplained count changes, missing provenance, or foreign-key ambiguity.
-
-## Worker 4 — မျက်စိစောင့် / E
-
-**Role:** Independent reviewer and release gatekeeper.
+## E — မျက်စိစောင့်
 
 **Task ID:** `dup-002-independent-gate`
 
-**Scope:** Review the completed L and D packet independently. Compare each claim to the original source and project policy. Decide exactly one of `PASS`, `FAIL`, `INCOMPLETE`, or `BLOCKED` for the review packet.
+Independently compare L and D outputs with the original sources and project policy. Return exactly one `PASS`, `FAIL`, `INCOMPLETE`, or `BLOCKED`, with cited evidence, unresolved risks, KPI impact, and whether a human decision is permissible.
 
-**Required output:** Independent verdict, cited evidence, unresolved risks, KPI impact, and whether a human decision is now permissible. A high matcher score alone is insufficient; Candidate 2 currently has no source/evidence records, so the default is expected to remain `INCOMPLETE` or `BLOCKED` unless new authoritative evidence is found.
+Candidate 2 currently has no source/evidence records on either side; a high matcher score alone is insufficient. The expected initial outcome is `INCOMPLETE` or `BLOCKED` unless authoritative evidence is added.
 
-**Forbidden:** Editing code/data, changing review status, approving own work, merging, publishing, or deploying.
-
-**Primary connector:** Gemini for structured independent review. If Gemini is unavailable, record `PROVIDER_BLOCKED`; use at most one predeclared fallback and preserve the same schema.
-
-**Stop condition:** Stop if evidence is missing, source access is uncertain, provenance is incomplete, or L/D disagree materially.
+**Primary connector:** Gemini structured independent review. If unavailable, record `PROVIDER_BLOCKED`; use at most one declared fallback with the same schema.
 
 ## Handoff order
 
 ```text
-LED defines packet
-  → L researches public evidence
-  → D audits data and provenance
-  → LED validates and assembles
-  → E issues independent gate
-  → human records decision if and only if evidence is sufficient
+Supervisor assigns LED
+  → LED assigns L/D/E
+  → L researches
+  → D audits L and local data
+  → LED integrates and validates
+  → E independently gates
+  → LED returns packet to Supervisor
+  → Supervisor decides the next task
 ```
 
-The human decision vocabulary is `KEEP_SEPARATE`, `MERGE_APPROVED`, or `NEEDS_REVIEW`. `MERGE_APPROVED` additionally requires an explicit canonical institution ID and foreign-key impact notes. No implementation may apply the merge until the human decision is recorded and a separate migration plan is reviewed.
+A human decision may be recorded as `KEEP_SEPARATE`, `MERGE_APPROVED`, or `NEEDS_REVIEW` only when provenance is sufficient. `MERGE_APPROVED` additionally requires a canonical institution ID and foreign-key impact notes. No merge implementation may run before a separate migration plan and approval.
 
-## Connector and token discipline
+## Connector and KPI discipline
 
-Use one primary connector per task. Do not send the same candidate to every provider. Mistral is for translation/extraction, Gemini for independent review, Groq for compact evidence labels only if access is restored, and DeepSeek/OpenAI for technical audits. OpenRouter is a named fallback, not a parallel route. Record provider, model, status, usage when available, and `production_changed: false`.
+Use one primary connector per bounded task. Mistral is for translation/extraction, Gemini for E's independent review, Groq for compact report-only classification if access is restored, and DeepSeek/OpenAI for technical audits. OpenRouter is a named fallback only. Record provider, model, status, error class, and `production_changed: false`.
 
-## KPI gate for this assignment
-
-The assignment can close only when provenance for every claim is complete, no restricted/private source was used, local counts are unchanged, no production mutation occurred, and E has issued a verdict. This assignment does not by itself clear the project release gate; all duplicate dispositions, evidence review, tests, and independent release review remain required.
-
-## Current status
-
-- LED: active.
-- L: pending Candidate 2 public-source packet.
-- D: waiting for L packet; local queue is reproducible with 79 pending candidates.
-- E: waiting for L and D outputs.
-- Project release: `INCOMPLETE`; source expansion remains blocked.
+Release remains `INCOMPLETE` while the 25-item evidence queue, 79 pending duplicate candidates, missing human decisions, regression tests, and E's final release review remain open. Source expansion is blocked.
