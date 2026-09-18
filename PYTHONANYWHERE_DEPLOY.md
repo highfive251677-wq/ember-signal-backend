@@ -1,63 +1,64 @@
 # PythonAnywhere deployment
 
-Upload `ember-signal-backend-main.zip` into:
+This repository includes `pythonanywhere_manager.py`, a small management client for the documented PythonAnywhere API. It supports web-app status inspection, source-file uploads, and web-app reloads.
 
-```text
-/home/Kbnb/ember-signal-backend-staging/
-```
+## Credentials and configuration
 
-In a Bash console, run:
+Create the following environment variables in the deployment environment. Do not commit the API key or place it in a `.env` file tracked by Git.
 
 ```sh
-cd ~/ember-signal-backend-staging
-unzip -q ember-signal-backend-main.zip
-cp -a ember-signal-backend-main/. .
-rm -rf ember-signal-backend-main
-python3 -m py_compile app.py wsgi.py
-python3 -c 'import app; c=app.app.test_client(); r=c.get("/api/health"); print(r.status_code); print(r.data.decode())'
+export PYTHONANYWHERE_USERNAME=Kbnb
+export PYTHONANYWHERE_DOMAIN=kbnb.pythonanywhere.com
+export PYTHONANYWHERE_HOST=www.pythonanywhere.com
+export PYTHONANYWHERE_API_KEY='[set this privately]'
 ```
 
-Expected status is `200` and the JSON response should contain `"status":"ok"` and `"database":"ok"`.
+PythonAnywhere's official API uses the `Authorization: Token <token>` header. The client accepts `API_TOKEN` as a fallback because PythonAnywhere pre-populates that variable in its own consoles, web apps, and tasks.
 
-Create/select a PythonAnywhere virtualenv and install dependencies:
+## Commands
+
+Install dependencies first:
 
 ```sh
-mkvirtualenv --python=/usr/bin/python3.13 ember-signal-env
-pip install -r ~/ember-signal-backend-staging/requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
-If `mkvirtualenv` is unavailable:
+Inspect the configured web app:
 
 ```sh
-python3 -m venv ~/.virtualenvs/ember-signal-env
-source ~/.virtualenvs/ember-signal-env/bin/activate
-pip install -r ~/ember-signal-backend-staging/requirements.txt
+python3 pythonanywhere_manager.py status
+python3 pythonanywhere_manager.py list
 ```
 
-In the PythonAnywhere Web tab, set the WSGI file to:
+All mutating commands require `--apply`. Without it, reload is only announced and deployment is a dry run.
 
-```text
-/home/Kbnb/ember-signal-backend-staging/wsgi.py
+```sh
+# Preview the files that would be uploaded. Runtime database files are excluded.
+python3 pythonanywhere_manager.py deploy \
+  --source . \
+  --remote /home/Kbnb/ember-signal-backend-staging
+
+# Upload source files, then reload the web app.
+python3 pythonanywhere_manager.py deploy \
+  --source . \
+  --remote /home/Kbnb/ember-signal-backend-staging \
+  --reload --apply
+
+# Reload without uploading files.
+python3 pythonanywhere_manager.py reload --apply
 ```
 
-Use this WSGI configuration content if the file is edited through the Web tab:
+The deploy command uploads files one by one through the PythonAnywhere Files API. It deliberately excludes `.git`, virtual environments, bytecode, `.env`, and `ember_signal.db`; runtime data must remain on the host and should be backed up separately. The client does not delete remote files, disable the site, or change web-app configuration.
 
-```python
-import sys
-path = '/home/Kbnb/ember-signal-backend-staging'
-if path not in sys.path:
-    sys.path.insert(0, path)
-from app import app as application
+A release should be validated after reload:
+
+```sh
+curl --fail --silent https://kbnb.pythonanywhere.com/api/health
+curl --fail --silent https://kbnb.pythonanywhere.com/api/summary
 ```
 
-Set the web app's virtualenv to:
+The PythonAnywhere API has a documented limit of 40 requests per minute for ordinary endpoints. The client performs no polling and uses a bounded request timeout.
 
-```text
-/home/Kbnb/.virtualenvs/ember-signal-env
-```
+## Existing manual deployment
 
-Then reload the web app and check:
-
-```text
-https://<your-pythonanywhere-domain>/api/health
-```
+The existing manual workflow remains supported. Upload `ember-signal-backend-main.zip` into `/home/Kbnb/ember-signal-backend-staging/`, extract it, compile `app.py` and `wsgi.py`, and reload the web app. The management client is intended for controlled source synchronization and repeatable reloads, not for merging or publishing unreviewed database quality changes.
