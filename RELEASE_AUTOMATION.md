@@ -1,36 +1,33 @@
 # Ember Signal release automation
 
-`release_orchestrator.py` is a read-only-by-default release gate that combines the available provider credentials and integrations without putting secrets in the repository.
+`release_orchestrator.py` is a read-only-by-default release gate that combines Railway, Render, PythonAnywhere, optional Cloudflare, and optional OpenRouter diagnostics without putting secrets in the repository.
 
 ## What it checks
 
 | Provider | Check | Mutation behavior |
 |---|---|---|
 | Railway | Project-token scope, latest deployments, and latest status | Read-only |
+| Render | Service metadata and optional public health endpoint | Read-only |
 | PythonAnywhere | Public health endpoint | Read-only unless explicit deployment is requested |
-| Cloudflare | Optional zone status through `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ZONE_ID` | Read-only |
-| OpenRouter | Optional concise blocker summary through `OPENROUTER_API_KEY` | Inference only |
-
-The configured Cloudflare connector was verified with a read-only zone-list request. No Cloudflare DNS, Worker, zone, or account mutation was performed. An OpenRouter connector was not available under the requested name, so the automation supports OpenRouter through its standard HTTPS API when `OPENROUTER_API_KEY` is configured.
+| Cloudflare | Optional zone status through the API or configured connector | Read-only |
+| OpenRouter | Optional concise blocker summary | Inference only |
 
 ## Environment
 
 ```sh
 export RAILWAY_TOKEN='[set privately]'
-# Project tokens use the default header. For an account/workspace token:
-# export RAILWAY_TOKEN_TYPE=bearer
+export RAILWAY_TOKEN_TYPE=project
 export RAILWAY_HEALTH_URL=https://ember-signal-backend-production.up.railway.app/api/health
+
+export RENDER_API_KEY='[set privately]'
+export RENDER_SERVICE_ID='[from Render dashboard after service creation]'
+export RENDER_HEALTH_URL='[Render public URL]/api/health'
 
 export PYTHONANYWHERE_USERNAME=Kbnb
 export PYTHONANYWHERE_DOMAIN=kbnb.pythonanywhere.com
 export PYTHONANYWHERE_API_KEY='[set privately]'
 export PYTHONANYWHERE_HEALTH_URL=https://kbnb.pythonanywhere.com/api/health
 
-# Optional direct Cloudflare API checks:
-export CLOUDFLARE_API_TOKEN='[set privately]'
-export CLOUDFLARE_ZONE_ID='[set privately]'
-
-# Optional AI summary:
 export OPENROUTER_API_KEY='[set privately]'
 export OPENROUTER_MODEL=openai/gpt-4o-mini
 ```
@@ -41,11 +38,23 @@ export OPENROUTER_MODEL=openai/gpt-4o-mini
 python3 release_orchestrator.py --json
 ```
 
-The command exits `0` only when all enabled checks pass. A missing optional Cloudflare configuration is reported as skipped; a missing Railway token is reported as a blocker because Railway is part of the release comparison.
+The command exits `0` only when enabled checks pass. Missing Render configuration is skipped until the Render service exists. Set `RENDER_SERVICE_ID` and `RENDER_HEALTH_URL` after deployment to make Render part of the gate.
 
-## Gated PythonAnywhere deployment
+## Render deployment
 
-The gate can upload source files and reload PythonAnywhere only when the gate passes and the operator explicitly supplies `--apply`:
+The repository includes `render.yaml`. In Render, use **New → Blueprint** and select this public GitHub repository. The Blueprint configures a Python web service with:
+
+```text
+Build: pip install -r requirements.txt
+Start: gunicorn --bind 0.0.0.0:$PORT wsgi:application
+Health: /api/health
+Branch: main
+Auto deploy: enabled
+```
+
+Render's API rejected automatic service creation until payment information was present on the account. The service was not created by automation. A Render account owner must satisfy that account-level requirement in the Render Dashboard first; the Blueprint is ready afterward.
+
+## PythonAnywhere deployment
 
 ```sh
 python3 release_orchestrator.py \
@@ -55,8 +64,12 @@ python3 release_orchestrator.py \
   --apply
 ```
 
-This operation uses the existing PythonAnywhere client and excludes runtime database files, `.env`, Git metadata, virtual environments, and bytecode. It does not redeploy Railway, change Cloudflare configuration, or publish unreviewed Ember Signal data. Railway and Cloudflare mutations remain intentionally out of scope for this first automation layer.
+This requires a passing gate and explicit `--apply`. It excludes runtime database files, `.env`, Git metadata, virtual environments, and bytecode.
+
+## Termius / SSH clarification
+
+A Render web service is an HTTP container, not an SSH server. It cannot provide a persistent Termius host. Use a separate SSH-capable VM or VPS, such as an eligible Oracle Cloud Free Tier VM, for Termius. Keep Render and Railway as HTTP deployment targets for the API.
 
 ## Security
 
-The Railway and PythonAnywhere credentials supplied during setup are not stored in Git, logs, test fixtures, or documentation. Because credentials were shared in chat, revoke and replace them before live execution. Use provider-specific least-privilege tokens and keep the OpenRouter key optional unless AI summaries are needed.
+Never commit API keys, SSH private keys, GitHub tokens, runtime databases, or passwords. Credentials supplied in chat should be revoked and replaced. Public source code does not make secrets safe to publish.

@@ -71,6 +71,22 @@ def railway_report() -> dict[str, Any]:
         return {"provider": "railway", "ok": False, "error": str(exc)}
 
 
+def render_report() -> dict[str, Any]:
+    """Inspect the configured Render service without triggering a deploy."""
+    service_id = os.getenv("RENDER_SERVICE_ID")
+    token = os.getenv("RENDER_API_KEY")
+    if not service_id or not token:
+        return {"provider": "render", "ok": True, "skipped": True,
+                "message": "Set RENDER_API_KEY and RENDER_SERVICE_ID to enable Render API inspection"}
+    try:
+        payload = http_get(f"https://api.render.com/v1/services/{service_id}", headers={"Authorization": f"Bearer {token}"})
+        service = payload.get("service", payload)
+        return {"provider": "render", "ok": not service.get("suspended", False),
+                "service": {key: service.get(key) for key in ("id", "name", "type", "branch", "autoDeploy", "url", "suspended")}}
+    except (requests.RequestException, OrchestratorError) as exc:
+        return {"provider": "render", "ok": False, "error": str(exc)}
+
+
 def cloudflare_report() -> dict[str, Any]:
     token = os.getenv("CLOUDFLARE_API_TOKEN")
     zone_id = os.getenv("CLOUDFLARE_ZONE_ID")
@@ -100,13 +116,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run a read-only Ember Signal cross-provider release gate")
     parser.add_argument("--pythonanywhere-url", default=os.getenv("PYTHONANYWHERE_HEALTH_URL", "https://kbnb.pythonanywhere.com/api/health"))
     parser.add_argument("--railway-url", default=os.getenv("RAILWAY_HEALTH_URL", "https://ember-signal-backend-production.up.railway.app/api/health"))
+    parser.add_argument("--render-url", default=os.getenv("RENDER_HEALTH_URL", ""))
     parser.add_argument("--deploy-pythonanywhere", action="store_true", help="after a passing gate, upload source and reload PythonAnywhere")
     parser.add_argument("--source", default=".")
     parser.add_argument("--remote", default=os.getenv("PYTHONANYWHERE_SOURCE_DIRECTORY"))
     parser.add_argument("--apply", action="store_true", help="required for --deploy-pythonanywhere")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
-    report = {"checks": [railway_report(), check_http_health("pythonanywhere", args.pythonanywhere_url), check_http_health("railway_http", args.railway_url), cloudflare_report()]}
+    checks = [railway_report(), render_report(), check_http_health("pythonanywhere", args.pythonanywhere_url), check_http_health("railway_http", args.railway_url), cloudflare_report()]
+    if args.render_url:
+        checks.append(check_http_health("render_http", args.render_url))
+    report = {"checks": checks}
     report["ok"] = all(item.get("ok", False) or item.get("skipped", False) for item in report["checks"])
     if args.deploy_pythonanywhere:
         if not args.apply:
